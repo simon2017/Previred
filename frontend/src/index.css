@@ -1,0 +1,221 @@
+:root {
+  --color-fondo: #f4f5f7;
+  --color-texto: #1f2430;
+  --color-borde: #d7dbe0;
+  --color-primario: #6d28d9;
+  --color-primario-hover: #5b21b6;
+  --color-peligro: #b91c1c;
+  --color-ok: #15803d;
+  --color-ok-bg: #dcfce7;
+  --color-pendiente: #92400e;
+  --color-pendiente-bg: #fef3c7;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.app-header {
+  background: var(--color-primario);
+  color: white;
+}
+
+.app-header-contenido {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.app-main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.pagina-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.error-banner {
+  background: #fee2e2;
+  color: var(--color-peligro);
+  border: 1px solid #fca5a5;
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.tabla th,
+.tabla td {
+  text-align: left;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--color-borde);
+  font-size: 0.9rem;
+}
+
+.tabla th {
+  background: #eef0f4;
+  font-weight: 600;
+}
+
+.tabla-acciones {
+  display: flex;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-ok {
+  background: var(--color-ok-bg);
+  color: var(--color-ok);
+}
+
+.badge-pendiente {
+  background: var(--color-pendiente-bg);
+  color: var(--color-pendiente);
+}
+
+.btn {
+  display: inline-block;
+  border: 1px solid var(--color-borde);
+  background: white;
+  color: var(--color-texto);
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primario {
+  background: var(--color-primario);
+  border-color: var(--color-primario);
+  color: white;
+}
+
+.btn-primario:hover:not(:disabled) {
+  background: var(--color-primario-hover);
+}
+
+.btn-peligro {
+  background: white;
+  border-color: var(--color-peligro);
+  color: var(--color-peligro);
+}
+
+.btn-peligro:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.formulario {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  max-width: 480px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.campo label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.campo input {
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+.campo input:disabled {
+  background: #f1f2f4;
+}
+
+.campo-error {
+  color: var(--color-peligro);
+  font-size: 0.8rem;
+}
+
+.direccion {
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem 0.25rem;
+  margin: 0 0 1rem;
+}
+
+.direccion legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0 0.4rem;
+}
+
+.formulario-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  max-width: 360px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

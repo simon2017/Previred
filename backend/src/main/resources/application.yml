@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: personas-backend
+
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=previred;encrypt=false
+    username: sa
+    password: Previred_2025!
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      pool-name: sqlserver-pool
+      connection-timeout: 3000
+      initialization-fail-timeout: 0
+      maximum-pool-size: 10
+
+  flyway:
+    # Se configura con su propia conexion para evitar ambiguedad con 
+    #el segundo datasource de contingencia (outbox).
+    url: jdbc:sqlserver://localhost:1433;databaseName=previred;encrypt=false
+    user: sa
+    password: Previred_2025!
+    connect-retries: 3
+
+app:
+  datasource:
+    outbox:
+      # Almacen local de contingencia: vive en el propio proceso del backend,
+      # independiente de la red y de SQL Server.
+      url: jdbc:h2:file:./data/outbox;AUTO_SERVER=TRUE
+      username: sa
+      password: ""
+      driver-class-name: org.h2.Driver
+  resilience:
+    reconciliation:
+      fixed-delay-ms: 15000
+      # Reintentos automaticos antes de marcar un registro como FAILED (requiere
+      # intervencion manual desde ese punto; ver README, seccion de supuestos).
+      max-intentos: 3
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+server:
+  port: 8080
+
+logging:
+  level:
+    cl.previred.personas: INFO

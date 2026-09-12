@@ -1,0 +1,10 @@
+app:
+  datasource:
+    outbox:
+      url: jdbc:h2:mem:outbox-test;DB_CLOSE_DELAY=-1
+      username: sa
+      password: ""
+      driver-class-name: org.h2.Driver
+  resilience:
+    reconciliation:
+      fixed-delay-ms: 2000

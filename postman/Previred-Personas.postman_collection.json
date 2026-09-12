@@ -1,0 +1,774 @@
+{
+  "info": {
+    "_postman_id": "a3f1c8e2-6b4d-4e2a-9c1a-7f2d5b9e0c11",
+    "name": "Previred - Personas API",
+    "description": "Coleccion para validar el CRUD de personas del Desafio Tecnico Previred 2025.\n\nEstructura:\n- 01 - CRUD feliz: flujo completo crear/listar/obtener/actualizar/eliminar.\n- 02 - Validaciones: RUT invalido, campos obligatorios, fecha futura, RUT duplicado, inmutabilidad del RUT, 404.\n- 03 - Contingencia (manual): requiere detener/reiniciar SQL Server a mano (docker compose stop/start sqlserver) para verificar el mecanismo de resiliencia (outbox + reconciliacion).\n\nCada carpeta limpia (elimina) los registros que crea, por lo que la coleccion es re-ejecutable de punta a punta con el Collection Runner.\n\nRequiere el backend corriendo en {{baseUrl}} (por defecto http://localhost:8080) y SQL Server levantado (docker compose up -d sqlserver (y luego: docker compose up sqlserver-init, una sola vez)) salvo en la carpeta de contingencia.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "rutCrud", "value": "12345678-5", "type": "string" },
+    { "key": "rutDuplicado", "value": "76086428-5", "type": "string" },
+    { "key": "rutInmutable", "value": "11111111-1", "type": "string" },
+    { "key": "rutSinExistir", "value": "22222222-2", "type": "string" },
+    { "key": "rutFormatoInvalido", "value": "11.111.111-2", "type": "string" },
+    { "key": "rutContingencia", "value": "5-1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01 - CRUD feliz",
+      "item": [
+        {
+          "name": "Crear persona",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutCrud}}\",\n    \"nombre\": \"Juan\",\n    \"apellido\": \"Perez\",\n    \"fechaNacimiento\": \"1990-01-01\",\n    \"direccion\": {\n        \"calle\": \"Av. Siempre Viva 742\",\n        \"comuna\": \"Providencia\",\n        \"region\": \"Metropolitana\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('El rut coincide (normalizado)', function () {",
+                  "    pm.expect(body.rut).to.eql(pm.collectionVariables.get('rutCrud'));",
+                  "});",
+                  "",
+                  "pm.test('Queda SINCRONIZADO (SQL Server disponible)', function () {",
+                  "    pm.expect(body.estadoSincronizacion).to.eql('SINCRONIZADO');",
+                  "});",
+                  "",
+                  "pm.test('La edad viene calculada', function () {",
+                  "    pm.expect(body.edad).to.be.a('number');",
+                  "    pm.expect(body.edad).to.be.at.least(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar personas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('La respuesta es un arreglo', function () {",
+                  "    pm.expect(body).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Contiene la persona recien creada', function () {",
+                  "    const ruts = body.map(p => p.rut);",
+                  "    pm.expect(ruts).to.include(pm.collectionVariables.get('rutCrud'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener persona por RUT",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutCrud}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutCrud}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Datos correctos', function () {",
+                  "    pm.expect(body.nombre).to.eql('Juan');",
+                  "    pm.expect(body.direccion.comuna).to.eql('Providencia');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar persona",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutCrud}}\",\n    \"nombre\": \"Juan\",\n    \"apellido\": \"Perez Actualizado\",\n    \"fechaNacimiento\": \"1990-01-01\",\n    \"direccion\": {\n        \"calle\": \"Nueva Direccion 123\",\n        \"comuna\": \"Providencia\",\n        \"region\": \"Metropolitana\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutCrud}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutCrud}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('El apellido se actualizo', function () {",
+                  "    pm.expect(body.apellido).to.eql('Perez Actualizado');",
+                  "});",
+                  "",
+                  "pm.test('Sigue SINCRONIZADO', function () {",
+                  "    pm.expect(body.estadoSincronizacion).to.eql('SINCRONIZADO');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar persona",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutCrud}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutCrud}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener persona eliminada (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutCrud}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutCrud}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('El error menciona el rut', function () {",
+                  "    pm.expect(body.message).to.include(pm.collectionVariables.get('rutCrud'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Validaciones",
+      "item": [
+        {
+          "name": "Crear con RUT invalido (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutFormatoInvalido}}\",\n    \"nombre\": \"Juan\",\n    \"apellido\": \"Perez\",\n    \"fechaNacimiento\": \"1990-01-01\",\n    \"direccion\": {\n        \"calle\": \"Calle 1\",\n        \"comuna\": \"Comuna\",\n        \"region\": \"Region\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Reporta el campo rut como invalido', function () {",
+                  "    const campos = body.fieldErrors.map(e => e.campo);",
+                  "    pm.expect(campos).to.include('rut');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear con campos obligatorios faltantes (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutCrud}}\",\n    \"direccion\": {\n        \"calle\": \"\",\n        \"comuna\": \"\",\n        \"region\": \"\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Reporta multiples errores de campo', function () {",
+                  "    pm.expect(body.fieldErrors.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear con fecha de nacimiento futura (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutCrud}}\",\n    \"nombre\": \"Juan\",\n    \"apellido\": \"Perez\",\n    \"fechaNacimiento\": \"2999-01-01\",\n    \"direccion\": {\n        \"calle\": \"Calle 1\",\n        \"comuna\": \"Comuna\",\n        \"region\": \"Region\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Reporta el campo fechaNacimiento como invalido', function () {",
+                  "    const campos = body.fieldErrors.map(e => e.campo);",
+                  "    pm.expect(campos).to.include('fechaNacimiento');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear rut duplicado - primera vez (201)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutDuplicado}}\",\n    \"nombre\": \"Ana\",\n    \"apellido\": \"Soto\",\n    \"fechaNacimiento\": \"1985-05-05\",\n    \"direccion\": {\n        \"calle\": \"Calle 1\",\n        \"comuna\": \"Comuna\",\n        \"region\": \"Region\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear rut duplicado - segunda vez (409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutDuplicado}}\",\n    \"nombre\": \"Ana\",\n    \"apellido\": \"Soto\",\n    \"fechaNacimiento\": \"1985-05-05\",\n    \"direccion\": {\n        \"calle\": \"Calle 1\",\n        \"comuna\": \"Comuna\",\n        \"region\": \"Region\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('El error menciona el rut duplicado', function () {",
+                  "    pm.expect(body.message).to.include(pm.collectionVariables.get('rutDuplicado'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar rut duplicado (limpieza)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutDuplicado}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutDuplicado}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear persona para probar inmutabilidad del RUT",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutInmutable}}\",\n    \"nombre\": \"Pedro\",\n    \"apellido\": \"Diaz\",\n    \"fechaNacimiento\": \"1988-08-08\",\n    \"direccion\": {\n        \"calle\": \"Calle 1\",\n        \"comuna\": \"Comuna\",\n        \"region\": \"Region\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar intentando cambiar el RUT (400)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutSinExistir}}\",\n    \"nombre\": \"Pedro\",\n    \"apellido\": \"Diaz\",\n    \"fechaNacimiento\": \"1988-08-08\",\n    \"direccion\": {\n        \"calle\": \"Calle 1\",\n        \"comuna\": \"Comuna\",\n        \"region\": \"Region\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutInmutable}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutInmutable}}"]
+            },
+            "description": "El rut de la URL ({{rutInmutable}}) no coincide con el rut del body ({{rutSinExistir}}): debe rechazarse, ya que el RUT es la clave primaria e inmutable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('El error menciona que el rut no puede modificarse', function () {",
+                  "    pm.expect(body.message.toLowerCase()).to.include('rut');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar persona de prueba de inmutabilidad (limpieza)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutInmutable}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutInmutable}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener persona inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutSinExistir}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutSinExistir}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar persona inexistente (404)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutSinExistir}}\",\n    \"nombre\": \"Nadie\",\n    \"apellido\": \"Nadie\",\n    \"fechaNacimiento\": \"1990-01-01\",\n    \"direccion\": {\n        \"calle\": \"Calle 1\",\n        \"comuna\": \"Comuna\",\n        \"region\": \"Region\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutSinExistir}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutSinExistir}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar persona inexistente (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutSinExistir}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutSinExistir}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET con RUT de formato invalido en la URL (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutFormatoInvalido}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutFormatoInvalido}}"]
+            },
+            "description": "Valida que @Rut sobre el @PathVariable rechace un RUT con digito verificador incorrecto antes de llegar al service (400, no 404)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Contingencia (manual, requiere Docker)",
+      "description": "Estos requests validan el requisito central del desafio: el registro debe quedar resguardado aunque SQL Server no este disponible en ese momento. Requieren intervencion manual entre pasos (no se puede controlar Docker desde Postman):\n\n1. Antes del paso 1: ejecutar `docker compose stop sqlserver` desde la raiz del repo.\n2. Correr el paso 1 (Crear con SQL Server caido) y el paso 2 (Listar - debe verse pendiente).\n3. Ejecutar `docker compose start sqlserver`.\n4. Esperar ~15-20 segundos (el scheduler de reconciliacion corre cada 15s por defecto, ver app.resilience.reconciliation.fixed-delay-ms).\n5. Correr el paso 3 (debe verse SINCRONIZADO) y el paso 4 (limpieza).\n\nSi se corren los 4 pasos seguidos sin las pausas manuales, el paso 3 puede fallar simplemente porque el scheduler todavia no alcanzo a reconciliar - no es un error del backend, solo falta esperar mas.",
+      "item": [
+        {
+          "name": "1. Crear persona con SQL Server caido",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rut\": \"{{rutContingencia}}\",\n    \"nombre\": \"Contingencia\",\n    \"apellido\": \"Test\",\n    \"fechaNacimiento\": \"1992-02-02\",\n    \"direccion\": {\n        \"calle\": \"Calle 1\",\n        \"comuna\": \"Comuna\",\n        \"region\": \"Region\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            },
+            "description": "Ejecutar `docker compose stop sqlserver` ANTES de correr esta request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 (la API responde exitosamente aunque SQL Server este caido)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Queda PENDIENTE_SINCRONIZACION', function () {",
+                  "    pm.expect(body.estadoSincronizacion).to.eql('PENDIENTE_SINCRONIZACION');",
+                  "});",
+                  "",
+                  "pm.test('Incluye un mensaje explicativo', function () {",
+                  "    pm.expect(body.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Listar - debe verse como pendiente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const persona = body.find(p => p.rut === pm.collectionVariables.get('rutContingencia'));",
+                  "",
+                  "pm.test('El registro creado en contingencia aparece en el listado', function () {",
+                  "    pm.expect(persona).to.not.be.undefined;",
+                  "    pm.expect(persona.estadoSincronizacion).to.eql('PENDIENTE_SINCRONIZACION');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Obtener tras reiniciar SQL Server - debe verse SINCRONIZADO",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutContingencia}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutContingencia}}"]
+            },
+            "description": "Correr `docker compose start sqlserver` y esperar ~15-20s antes de este paso."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Ya fue reconciliado y quedo SINCRONIZADO', function () {",
+                  "    pm.expect(body.estadoSincronizacion).to.eql('SINCRONIZADO');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Eliminar (limpieza)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/personas/{{rutContingencia}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "personas", "{{rutContingencia}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
